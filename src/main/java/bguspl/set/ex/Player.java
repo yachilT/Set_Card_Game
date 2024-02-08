@@ -1,5 +1,7 @@
 package bguspl.set.ex;
 
+import java.util.logging.Level;
+
 import bguspl.set.Env;
 
 /**
@@ -114,7 +116,12 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) {
-        // TODO implement
+        if (!table.playersTokens[id][slot])
+            table.placeToken(id, slot);
+        else if (!table.removeToken(id, slot))
+            env.logger.warning("was unable to remove token in " + slot + " by " + id);
+        // check set true - synchronized(table)
+        
     }
 
     /**

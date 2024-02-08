@@ -29,6 +29,8 @@ public class Table {
      */
     protected final Integer[] cardToSlot; // slot per card (if any)
 
+    public final Boolean[][] playersTokens; // 2d array that holds the token of each player
+
     /**
      * Constructor for testing.
      *
@@ -41,6 +43,7 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
+        this.playersTokens = new Boolean[env.config.players][env.config.columns * env.config.rows];
     }
 
     /**
@@ -94,7 +97,7 @@ public class Table {
         cardToSlot[card] = slot;
         slotToCard[slot] = card;
 
-        // TODO implement
+        env.ui.placeCard(card, slot);
     }
 
     /**
@@ -105,8 +108,10 @@ public class Table {
         try {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
-
-        // TODO implement
+        for (int i = 0; i < playersTokens.length; i++) {
+            playersTokens[i][slot] = false;
+        }
+        env.ui.removeCard(slot);
     }
 
     /**
@@ -114,8 +119,9 @@ public class Table {
      * @param player - the player the token belongs to.
      * @param slot   - the slot on which to place the token.
      */
-    public void placeToken(int player, int slot) {
-        // TODO implement
+    public synchronized void placeToken(int player, int slot) {
+        playersTokens[player][slot] = true;
+        env.ui.placeToken(player, slot);
     }
 
     /**
@@ -124,8 +130,11 @@ public class Table {
      * @param slot   - the slot from which to remove the token.
      * @return       - true iff a token was successfully removed.
      */
-    public boolean removeToken(int player, int slot) {
-        // TODO implement
-        return false;
+    public synchronized boolean removeToken(int player, int slot) {
+        if (!playersTokens[player][slot])
+            return false;
+        playersTokens[player][slot] = false;
+        env.ui.removeToken(player, slot);
+        return true;
     }
 }
