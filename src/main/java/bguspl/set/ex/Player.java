@@ -1,5 +1,7 @@
 package bguspl.set.ex;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 
 import bguspl.set.Env;
@@ -26,6 +28,8 @@ public class Player implements Runnable {
      * The id of the player (starting from 0).
      */
     public final int id;
+
+    public final BlockingQueue q;
 
     /**
      * The thread representing the current player.
@@ -66,6 +70,7 @@ public class Player implements Runnable {
         this.table = table;
         this.id = id;
         this.human = human;
+        q = new LinkedBlockingQueue<>(env.config.featureSize);
     }
 
     /**
