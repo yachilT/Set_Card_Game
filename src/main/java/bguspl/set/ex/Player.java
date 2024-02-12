@@ -1,8 +1,9 @@
 package bguspl.set.ex;
 
+import java.util.Vector;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.logging.Level;
+
 
 import bguspl.set.Env;
 
@@ -24,12 +25,21 @@ public class Player implements Runnable {
      */
     private final Table table;
 
+    /*
+     * The dealer.
+     */
+    private final Dealer dealer;
     /**
      * The id of the player (starting from 0).
      */
     public final int id;
 
-    public final BlockingQueue q;
+    /*
+     * The of incoming key presses
+     */
+    private final BlockingQueue<Integer> q;
+
+    private final Vector<Integer> tokens;
 
     /**
      * The thread representing the current player.
@@ -67,10 +77,12 @@ public class Player implements Runnable {
      */
     public Player(Env env, Dealer dealer, Table table, int id, boolean human) {
         this.env = env;
+        this.dealer = dealer;
         this.table = table;
         this.id = id;
         this.human = human;
         q = new LinkedBlockingQueue<>(env.config.featureSize);
+        this.tokens = new Vector<>(3);
     }
 
     /**
@@ -83,7 +95,9 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
 
         while (!terminate) {
-            // TODO implement main player loop
+            applyAction();
+            if (tokens.size() == env.config.featureSize)
+                // TO DO: Alert dealer thread to check valid set
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -120,15 +134,30 @@ public class Player implements Runnable {
      *
      * @param slot - the slot corresponding to the key pressed.
      */
-    public void keyPressed(int slot) {
-        if (!table.playersTokens[id][slot])
-            table.placeToken(id, slot);
-        else if (!table.removeToken(id, slot))
-            env.logger.warning("was unable to remove token in " + slot + " by " + id);
-        // check set true - synchronized(table)
-        
+    public void keyPressed(int slot) { // inserts an action to the queue
+        q.add(slot);
     }
 
+    private void applyAction() {
+        Integer slot = q.remove();
+
+        if (tokens.contains(slot)) {
+            if (!table.removeToken(id, slot))
+                env.logger.warning("unable to remove token in " + slot + " by " + id);
+            else
+                tokens.remove(slot);
+        }
+        else if(tokens.size() < env.config.featureSize){
+            
+            if (table.playersTokens[id][slot])
+                env.logger.warning("unable to add token in " + slot + " by " + id);
+            else{
+                table.placeToken(id, slot);
+                tokens.add(slot);
+            }
+        }
+    }
+    
     /**
      * Award a point to a player and perform other related actions.
      *
