@@ -31,6 +31,7 @@ public class Table {
 
     public final Boolean[][] playersTokens; // 2d array that holds the token of each player
 
+
     /**
      * Constructor for testing.
      *
@@ -120,8 +121,9 @@ public class Table {
      * @param slot   - the slot on which to place the token.
      */
     public synchronized void placeToken(int player, int slot) {
-        playersTokens[player][slot] = true;
-        env.ui.placeToken(player, slot);
+        if (slotToCard[slot] != null)
+            playersTokens[player][slot] = true;
+            env.ui.placeToken(player, slot);
     }
 
     /**
@@ -136,5 +138,18 @@ public class Table {
         playersTokens[player][slot] = false;
         env.ui.removeToken(player, slot);
         return true;
+    }
+
+    public synchronized int[] getCardsOfPlayer(int id) {
+        int[] cards = new int[env.config.featureSize];
+        int cardsCounter = 0;
+        for (int slot = 0; slot < playersTokens[id].length; slot++)
+        {
+            if (playersTokens[id][slot]) {
+                cards[cardsCounter++] = slotToCard[slot];
+            }
+        }
+
+        return cardsCounter == 0 ? null : cards;
     }
 }

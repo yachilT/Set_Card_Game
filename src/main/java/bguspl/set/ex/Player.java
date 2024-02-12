@@ -166,6 +166,10 @@ public class Player implements Runnable {
      */
     public void point() {
         // TODO implement
+        try{
+        Thread.sleep(env.config.pointFreezeMillis);
+        }
+        catch(InterruptedException ignored) {}
 
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);

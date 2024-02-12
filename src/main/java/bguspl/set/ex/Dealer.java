@@ -2,9 +2,12 @@ package bguspl.set.ex;
 
 import bguspl.set.Env;
 
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.lang.Object;
 
 /**
  * This class manages the dealer's threads and data
@@ -27,6 +30,10 @@ public class Dealer implements Runnable {
      */
     private final List<Integer> deck;
 
+    private final Queue<Integer> claimSetsQ;
+
+    private int[] cardsToRemove;
+
     /**
      * True iff game should be terminated.
      */
@@ -42,8 +49,10 @@ public class Dealer implements Runnable {
         this.table = table;
         this.players = players;
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
+        this.claimSetsQ = new LinkedList<>();
+        this.cardsToRemove = null;
     }
-
+    
     /**
      * The dealer thread starts here (main loop for the dealer thread).
      */
@@ -67,6 +76,7 @@ public class Dealer implements Runnable {
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
             sleepUntilWokenOrTimeout();
             updateTimerDisplay(false);
+            checkClaimedSet();
             removeCardsFromTable();
             placeCardsOnTable();
         }
@@ -92,7 +102,9 @@ public class Dealer implements Runnable {
      * Checks cards should be removed from the table and removes them.
      */
     private void removeCardsFromTable() {
-        // TODO implement
+        if (cardsToRemove != null) {
+            cards
+        }
     }
 
     /**
@@ -128,5 +140,29 @@ public class Dealer implements Runnable {
      */
     private void announceWinners() {
         // TODO implement
+    }
+
+    public void addClaimSet(int playerId){
+        synchronized(claimSetsQ){
+            claimSetsQ.add(playerId);
+        }
+    }
+
+    private void checkClaimedSet() {
+        int id = -1;
+        synchronized(claimSetsQ) {
+            if (!claimSetsQ.isEmpty())
+                id = claimSetsQ.remove();
+        }
+        if (id != -1){
+            int[] cardsToRemove = table.getCardsOfPlayer(id);
+            if (env.util.testSet(cardsToRemove)) {
+                players[id].point();
+                this.cardsToRemove = cardsToRemove;
+            }
+            else
+                players[id].penalty();
+        }
+           
     }
 }
