@@ -112,6 +112,10 @@ public class Table {
         for (int i = 0; i < playersTokens.length; i++) {
             playersTokens[i][slot] = false;
         }
+        int card = slotToCard[slot];
+        slotToCard[slot] = null;
+        cardToSlot[card] = null; 
+        
         env.ui.removeCard(slot);
     }
 

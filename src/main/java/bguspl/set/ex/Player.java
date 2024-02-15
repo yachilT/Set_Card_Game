@@ -97,7 +97,7 @@ public class Player implements Runnable {
         while (!terminate) {
             applyAction();
             if (tokens.size() == env.config.featureSize)
-                // TO DO: Alert dealer thread to check valid set
+                dealer.addClaimSet(id);
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -126,7 +126,7 @@ public class Player implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        this.terminate = true;
     }
 
     /**
@@ -167,7 +167,7 @@ public class Player implements Runnable {
     public void point() {
         // TODO implement
         try{
-        Thread.sleep(env.config.pointFreezeMillis);
+            Thread.sleep(env.config.pointFreezeMillis);
         }
         catch(InterruptedException ignored) {}
 
@@ -179,7 +179,10 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        // TODO implement
+        try{
+            Thread.sleep(env.config.penaltyFreezeMillis);
+        }
+        catch(InterruptedException ignored) {}
     }
 
     public int score() {

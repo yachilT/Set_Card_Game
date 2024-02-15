@@ -2,12 +2,14 @@ package bguspl.set.ex;
 
 import bguspl.set.Env;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.lang.Object;
 
 /**
  * This class manages the dealer's threads and data
@@ -62,7 +64,7 @@ public class Dealer implements Runnable {
         while (!shouldFinish()) {
             placeCardsOnTable();
             timerLoop();
-            updateTimerDisplay(false);
+            updateTimerDisplay(true);
             removeAllCardsFromTable();
         }
         announceWinners();
@@ -75,8 +77,7 @@ public class Dealer implements Runnable {
     private void timerLoop() {
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
             sleepUntilWokenOrTimeout();
-            updateTimerDisplay(false);
-            checkClaimedSet();
+            updateTimerDisplay(checkClaimedSet());
             removeCardsFromTable();
             placeCardsOnTable();
         }
@@ -86,7 +87,7 @@ public class Dealer implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        terminate = true;
     }
 
     /**
@@ -103,43 +104,71 @@ public class Dealer implements Runnable {
      */
     private void removeCardsFromTable() {
         if (cardsToRemove != null) {
-            cards
+            for(int i = 0; i < cardsToRemove.length; i++)
+                table.removeCard(table.cardToSlot[i]);
         }
+        cardsToRemove = null;
     }
 
     /**
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
-        // TODO implement
+        Collections.shuffle(deck);
+        synchronized(table){
+            for(int i = 0; i < env.config.columns * env.config.rows & !deck.isEmpty(); i++){
+                if(table.slotToCard[i] == null){
+                    int card = deck.remove(deck.size()-1);
+                    table.placeCard(card, i);
+                }
+            }
+        }
+        
     }
 
     /**
      * Sleep for a fixed amount of time or until the thread is awakened for some purpose.
      */
     private void sleepUntilWokenOrTimeout() {
-        // TODO implement
+        try{
+            Thread.sleep(1000);
+        }
+        catch(InterruptedException ignored) {}
     }
 
     /**
      * Reset and/or update the countdown and the countdown display.
      */
     private void updateTimerDisplay(boolean reset) {
-        // TODO implement
+        if (reset){
+            reshuffleTime += env.config.turnTimeoutMillis;
+            env.ui.setCountdown(env.config.turnTimeoutMillis, false);
+        }   
+        else {
+            long nextTime = env.config.turnTimeoutMillis - System.currentTimeMillis();
+            env.ui.setCountdown(nextTime, nextTime < env.config.turnTimeoutWarningMillis);
+        }
     }
 
     /**
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        // TODO implement
-    }
+        synchronized(table){
+            for(int i = 0; i < env.config.columns*env.config.rows; i++){
+                int card = table.slotToCard[i];
+                table.removeCard(i);
+                deck.add(card);
+            }
+        }
+    }   
 
     /**
      * Check who is/are the winner/s and displays them.
      */
     private void announceWinners() {
-        // TODO implement
+        int maxScore = Arrays.stream(players).map(Player::score).max(Integer::compare).get();
+        env.ui.announceWinner(Arrays.stream(players).filter(p -> p.score() == maxScore).mapToInt(p-> p.id).toArray());
     }
 
     public void addClaimSet(int playerId){
@@ -148,7 +177,7 @@ public class Dealer implements Runnable {
         }
     }
 
-    private void checkClaimedSet() {
+    private boolean checkClaimedSet() {
         int id = -1;
         synchronized(claimSetsQ) {
             if (!claimSetsQ.isEmpty())
@@ -159,10 +188,12 @@ public class Dealer implements Runnable {
             if (env.util.testSet(cardsToRemove)) {
                 players[id].point();
                 this.cardsToRemove = cardsToRemove;
+                return true;
             }
             else
                 players[id].penalty();
         }
+        return false;
            
     }
 }
