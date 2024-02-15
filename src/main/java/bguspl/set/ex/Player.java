@@ -70,6 +70,8 @@ public class Player implements Runnable {
 
     private boolean shouldClear;
 
+    private boolean isChecked;//Complete This!
+
     /**
      * The class constructor.
      *
@@ -119,8 +121,10 @@ public class Player implements Runnable {
             }
                 
             applyAction();
-            if (tokens.size() == env.config.featureSize)
+            if (tokens.size() == env.config.featureSize){
                 dealer.addClaimSet(id);
+                try {Thread.sleep(100);}catch(InterruptedException ignored){}
+            }
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -162,7 +166,15 @@ public class Player implements Runnable {
     }
 
     private void applyAction() {
-        Integer slot = q.remove();
+        Integer slot = null;
+        synchronized (q)
+        {
+            if (!q.isEmpty())
+                slot = q.remove();
+        }
+
+        if (slot == null)
+            return;
 
         if (tokens.contains(slot)) {
             if (!table.removeToken(id, slot))

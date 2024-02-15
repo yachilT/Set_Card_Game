@@ -1,6 +1,7 @@
 package bguspl.set.ex;
 
 import bguspl.set.Env;
+import bguspl.set.ThreadLogger;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +53,7 @@ public class Dealer implements Runnable {
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
         this.claimSetsQ = new LinkedList<>();
         this.cardsToRemove = null;
+        reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
     }
     
     /**
@@ -60,13 +62,16 @@ public class Dealer implements Runnable {
     @Override
     public void run() {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
+        for (Player player : players) {
+            new ThreadLogger(player, "player " + player.id, env.logger).startWithLog();;
+        }
         while (!shouldFinish()) {
             placeCardsOnTable();
             
             timerLoop();
             updateTimerDisplay(true);
             removeAllCardsFromTable();
-            
+
         }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -149,7 +154,7 @@ public class Dealer implements Runnable {
             env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         }   
         else {
-            long nextTime = env.config.turnTimeoutMillis - System.currentTimeMillis();
+            long nextTime = reshuffleTime - System.currentTimeMillis();
             env.ui.setCountdown(nextTime, nextTime < env.config.turnTimeoutWarningMillis);
         }
     }
@@ -177,6 +182,7 @@ public class Dealer implements Runnable {
 
     public void addClaimSet(int playerId){
         synchronized(claimSetsQ){
+            System.out.println("player" + playerId + "claimed set!");
             claimSetsQ.add(playerId);
         }
     }
@@ -188,8 +194,10 @@ public class Dealer implements Runnable {
                 id = claimSetsQ.remove();
         }
         if (id != -1){
+            System.out.println("checking player " + id + " set!");
             int[] cardsToRemove = table.getCardsOfPlayer(id);
             if (env.util.testSet(cardsToRemove)) {
+                
                 players[id].point();
                 this.cardsToRemove = cardsToRemove;
                 return true;

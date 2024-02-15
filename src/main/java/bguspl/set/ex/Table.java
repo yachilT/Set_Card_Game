@@ -29,7 +29,7 @@ public class Table {
      */
     protected final Integer[] cardToSlot; // slot per card (if any)
 
-    public final Boolean[][] playersTokens; // 2d array that holds the token of each player
+    public final boolean[][] playersTokens; // 2d array that holds the token of each player
 
 
     /**
@@ -44,7 +44,7 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
-        this.playersTokens = new Boolean[env.config.players][env.config.columns * env.config.rows];
+        this.playersTokens = new boolean[env.config.players][env.config.columns * env.config.rows];
     }
 
     /**
@@ -115,7 +115,7 @@ public class Table {
         int card = slotToCard[slot];
         slotToCard[slot] = null;
         cardToSlot[card] = null; 
-        
+
         env.ui.removeCard(slot);
     }
 
