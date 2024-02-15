@@ -7,7 +7,6 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -63,9 +62,11 @@ public class Dealer implements Runnable {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         while (!shouldFinish()) {
             placeCardsOnTable();
+            
             timerLoop();
             updateTimerDisplay(true);
             removeAllCardsFromTable();
+            
         }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -88,6 +89,9 @@ public class Dealer implements Runnable {
      */
     public void terminate() {
         terminate = true;
+        for (Player player : players) {
+            player.terminate();
+        }
     }
 
     /**

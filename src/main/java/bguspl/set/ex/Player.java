@@ -66,6 +66,10 @@ public class Player implements Runnable {
      */
     private int score;
 
+    private long sleep; 
+
+    private boolean shouldClear;
+
     /**
      * The class constructor.
      *
@@ -83,6 +87,8 @@ public class Player implements Runnable {
         this.human = human;
         q = new LinkedBlockingQueue<>(env.config.featureSize);
         this.tokens = new Vector<>(3);
+        sleep = -1;
+        shouldClear = false;
     }
 
     /**
@@ -95,6 +101,23 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
 
         while (!terminate) {
+            if (sleep != -1)
+            {
+                try {
+                    Thread.sleep(sleep);
+                }
+                catch(InterruptedException ignored) {}
+                finally {
+                    shouldClear();
+                }
+                
+            }
+
+            if (shouldClear) {
+                synchronized(q){q.clear();}
+                shouldClear = false;
+            }
+                
             applyAction();
             if (tokens.size() == env.config.featureSize)
                 dealer.addClaimSet(id);
@@ -165,12 +188,7 @@ public class Player implements Runnable {
      * @post - the player's score is updated in the ui.
      */
     public void point() {
-        // TODO implement
-        try{
-            Thread.sleep(env.config.pointFreezeMillis);
-        }
-        catch(InterruptedException ignored) {}
-
+        sleep = env.config.pointFreezeMillis;
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
     }
@@ -179,13 +197,16 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        try{
-            Thread.sleep(env.config.penaltyFreezeMillis);
-        }
-        catch(InterruptedException ignored) {}
+        sleep = env.config.penaltyFreezeMillis;
     }
+
 
     public int score() {
         return score;
+    }
+
+    //check without synch
+    public synchronized void shouldClear() {
+        shouldClear = true;
     }
 }
