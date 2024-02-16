@@ -1,8 +1,13 @@
 package bguspl.set.ex;
 
 import bguspl.set.Env;
+import bguspl.set.ThreadLogger;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -27,6 +32,10 @@ public class Dealer implements Runnable {
      */
     private final List<Integer> deck;
 
+    private final Queue<Integer> claimSetsQ;
+
+    private int[] cardsToRemove;
+
     /**
      * True iff game should be terminated.
      */
@@ -42,19 +51,27 @@ public class Dealer implements Runnable {
         this.table = table;
         this.players = players;
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
+        this.claimSetsQ = new LinkedList<>();
+        this.cardsToRemove = null;
+        reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
     }
-
+    
     /**
      * The dealer thread starts here (main loop for the dealer thread).
      */
     @Override
     public void run() {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
+        for (Player player : players) {
+            new ThreadLogger(player, "player " + player.id, env.logger).startWithLog();;
+        }
         while (!shouldFinish()) {
             placeCardsOnTable();
+            
             timerLoop();
-            updateTimerDisplay(false);
+            updateTimerDisplay(true);
             removeAllCardsFromTable();
+
         }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -66,7 +83,7 @@ public class Dealer implements Runnable {
     private void timerLoop() {
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
             sleepUntilWokenOrTimeout();
-            updateTimerDisplay(false);
+            updateTimerDisplay(checkClaimedSet());
             removeCardsFromTable();
             placeCardsOnTable();
         }
@@ -76,7 +93,10 @@ public class Dealer implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        terminate = true;
+        for (Player player : players) {
+            player.terminate();
+        }
     }
 
     /**
@@ -92,41 +112,100 @@ public class Dealer implements Runnable {
      * Checks cards should be removed from the table and removes them.
      */
     private void removeCardsFromTable() {
-        // TODO implement
+        if (cardsToRemove != null) {
+            for(int i = 0; i < cardsToRemove.length; i++)
+                table.removeCard(table.cardToSlot[i]);
+        }
+        cardsToRemove = null;
     }
 
     /**
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
-        // TODO implement
+        Collections.shuffle(deck);
+        synchronized(table){
+            for(int i = 0; i < env.config.columns * env.config.rows & !deck.isEmpty(); i++){
+                if(table.slotToCard[i] == null){
+                    int card = deck.remove(deck.size()-1);
+                    table.placeCard(card, i);
+                }
+            }
+        }
+        
     }
 
     /**
      * Sleep for a fixed amount of time or until the thread is awakened for some purpose.
      */
     private void sleepUntilWokenOrTimeout() {
-        // TODO implement
+        try{
+            Thread.sleep(1000);
+        }
+        catch(InterruptedException ignored) {}
     }
 
     /**
      * Reset and/or update the countdown and the countdown display.
      */
     private void updateTimerDisplay(boolean reset) {
-        // TODO implement
+        if (reset){
+            reshuffleTime += env.config.turnTimeoutMillis;
+            env.ui.setCountdown(env.config.turnTimeoutMillis, false);
+        }   
+        else {
+            long nextTime = reshuffleTime - System.currentTimeMillis();
+            env.ui.setCountdown(nextTime, nextTime < env.config.turnTimeoutWarningMillis);
+        }
     }
 
     /**
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        // TODO implement
-    }
+        synchronized(table){
+            for(int i = 0; i < env.config.columns*env.config.rows; i++){
+                int card = table.slotToCard[i];
+                table.removeCard(i);
+                deck.add(card);
+            }
+        }
+    }   
 
     /**
      * Check who is/are the winner/s and displays them.
      */
     private void announceWinners() {
-        // TODO implement
+        int maxScore = Arrays.stream(players).map(Player::score).max(Integer::compare).get();
+        env.ui.announceWinner(Arrays.stream(players).filter(p -> p.score() == maxScore).mapToInt(p-> p.id).toArray());
+    }
+
+    public void addClaimSet(int playerId){
+        synchronized(claimSetsQ){
+            System.out.println("player" + playerId + "claimed set!");
+            claimSetsQ.add(playerId);
+        }
+    }
+
+    private boolean checkClaimedSet() {
+        int id = -1;
+        synchronized(claimSetsQ) {
+            if (!claimSetsQ.isEmpty())
+                id = claimSetsQ.remove();
+        }
+        if (id != -1){
+            System.out.println("checking player " + id + " set!");
+            int[] cardsToRemove = table.getCardsOfPlayer(id);
+            if (env.util.testSet(cardsToRemove)) {
+                
+                players[id].point();
+                this.cardsToRemove = cardsToRemove;
+                return true;
+            }
+            else
+                players[id].penalty();
+        }
+        return false;
+           
     }
 }

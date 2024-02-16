@@ -1,5 +1,10 @@
 package bguspl.set.ex;
 
+import java.util.Vector;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+
 import bguspl.set.Env;
 
 /**
@@ -20,10 +25,21 @@ public class Player implements Runnable {
      */
     private final Table table;
 
+    /*
+     * The dealer.
+     */
+    private final Dealer dealer;
     /**
      * The id of the player (starting from 0).
      */
     public final int id;
+
+    /*
+     * The of incoming key presses
+     */
+    private final BlockingQueue<Integer> q;
+
+    private final Vector<Integer> tokens;
 
     /**
      * The thread representing the current player.
@@ -50,6 +66,12 @@ public class Player implements Runnable {
      */
     private int score;
 
+    private long sleep; 
+
+    private boolean shouldClear;
+
+    private boolean isChecked;//Complete This!
+
     /**
      * The class constructor.
      *
@@ -61,9 +83,14 @@ public class Player implements Runnable {
      */
     public Player(Env env, Dealer dealer, Table table, int id, boolean human) {
         this.env = env;
+        this.dealer = dealer;
         this.table = table;
         this.id = id;
         this.human = human;
+        q = new LinkedBlockingQueue<>(env.config.featureSize);
+        this.tokens = new Vector<>(3);
+        sleep = -1;
+        shouldClear = false;
     }
 
     /**
@@ -76,7 +103,28 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
 
         while (!terminate) {
-            // TODO implement main player loop
+            if (sleep != -1)
+            {
+                try {
+                    Thread.sleep(sleep);
+                }
+                catch(InterruptedException ignored) {}
+                finally {
+                    shouldClear();
+                }
+                
+            }
+
+            if (shouldClear) {
+                synchronized(q){q.clear();}
+                shouldClear = false;
+            }
+                
+            applyAction();
+            if (tokens.size() == env.config.featureSize){
+                dealer.addClaimSet(id);
+                try {Thread.sleep(100);}catch(InterruptedException ignored){}
+            }
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -105,7 +153,7 @@ public class Player implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        this.terminate = true;
     }
 
     /**
@@ -113,10 +161,38 @@ public class Player implements Runnable {
      *
      * @param slot - the slot corresponding to the key pressed.
      */
-    public void keyPressed(int slot) {
-        // TODO implement
+    public void keyPressed(int slot) { // inserts an action to the queue
+        q.add(slot);
     }
 
+    private void applyAction() {
+        Integer slot = null;
+        synchronized (q)
+        {
+            if (!q.isEmpty())
+                slot = q.remove();
+        }
+
+        if (slot == null)
+            return;
+
+        if (tokens.contains(slot)) {
+            if (!table.removeToken(id, slot))
+                env.logger.warning("unable to remove token in " + slot + " by " + id);
+            else
+                tokens.remove(slot);
+        }
+        else if(tokens.size() < env.config.featureSize){
+            
+            if (table.playersTokens[id][slot])
+                env.logger.warning("unable to add token in " + slot + " by " + id);
+            else{
+                table.placeToken(id, slot);
+                tokens.add(slot);
+            }
+        }
+    }
+    
     /**
      * Award a point to a player and perform other related actions.
      *
@@ -124,8 +200,7 @@ public class Player implements Runnable {
      * @post - the player's score is updated in the ui.
      */
     public void point() {
-        // TODO implement
-
+        sleep = env.config.pointFreezeMillis;
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
     }
@@ -134,10 +209,16 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        // TODO implement
+        sleep = env.config.penaltyFreezeMillis;
     }
+
 
     public int score() {
         return score;
+    }
+
+    //check without synch
+    public synchronized void shouldClear() {
+        shouldClear = true;
     }
 }
