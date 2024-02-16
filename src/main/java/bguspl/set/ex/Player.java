@@ -37,7 +37,7 @@ public class Player implements Runnable {
     /*
      * The of incoming key presses
      */
-    private final BlockingQueue<Integer> q;
+    private final BlockingQueue<Integer> incomingActionsQueue;
 
     private final Vector<Integer> tokens;
 
@@ -66,7 +66,7 @@ public class Player implements Runnable {
      */
     private int score;
 
-    private long sleep; 
+    private long sleepUntil; 
 
     private boolean shouldClear;
 
@@ -87,9 +87,9 @@ public class Player implements Runnable {
         this.table = table;
         this.id = id;
         this.human = human;
-        q = new LinkedBlockingQueue<>(env.config.featureSize);
+        incomingActionsQueue = new LinkedBlockingQueue<>();
         this.tokens = new Vector<>(3);
-        sleep = -1;
+        sleepUntil = -1;
         shouldClear = false;
     }
 
@@ -103,26 +103,28 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
 
         while (!terminate) {
-            if (sleep != -1)
+            while (System.currentTimeMillis() < sleepUntil) 
             {
-                try {
-                    Thread.sleep(sleep);
-                }
-                catch(InterruptedException ignored) {}
-                finally {
-                    shouldClear();
-                }
-                
+                env.ui.setFreeze(id, sleepUntil - System.currentTimeMillis());
             }
+            if(sleepUntil > 0){
+                sleepUntil = -1;
+                shouldClear();
+                env.ui.setFreeze(id, sleepUntil);
+                System.out.println("Player: " + id + " woken up");
+            }
+                
+            
 
             if (shouldClear) {
-                synchronized(q){q.clear();}
+                synchronized(incomingActionsQueue){incomingActionsQueue.clear();}
                 shouldClear = false;
             }
                 
             applyAction();
-            if (tokens.size() == env.config.featureSize){
+            if (tokens.size() == env.config.featureSize & !isChecked){
                 dealer.addClaimSet(id);
+                isChecked = true;
                 try {Thread.sleep(100);}catch(InterruptedException ignored){}
             }
         }
@@ -148,6 +150,7 @@ public class Player implements Runnable {
         }, "computer-" + id);
         aiThread.start();
     }
+    
 
     /**
      * Called when the game should be terminated.
@@ -162,15 +165,15 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) { // inserts an action to the queue
-        q.add(slot);
+        incomingActionsQueue.add(slot);
     }
 
     private void applyAction() {
         Integer slot = null;
-        synchronized (q)
+        synchronized (incomingActionsQueue)
         {
-            if (!q.isEmpty())
-                slot = q.remove();
+            if (!incomingActionsQueue.isEmpty())
+                slot = incomingActionsQueue.remove();
         }
 
         if (slot == null)
@@ -179,8 +182,10 @@ public class Player implements Runnable {
         if (tokens.contains(slot)) {
             if (!table.removeToken(id, slot))
                 env.logger.warning("unable to remove token in " + slot + " by " + id);
-            else
+            else{
                 tokens.remove(slot);
+                isChecked = false;
+            }
         }
         else if(tokens.size() < env.config.featureSize){
             
@@ -199,17 +204,21 @@ public class Player implements Runnable {
      * @post - the player's score is increased by 1.
      * @post - the player's score is updated in the ui.
      */
-    public void point() {
-        sleep = env.config.pointFreezeMillis;
+    public  synchronized void point() {
+        sleepUntil = System.currentTimeMillis() + env.config.pointFreezeMillis;
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
+        isChecked = false;
         env.ui.setScore(id, ++score);
+        tokens.clear();
+        System.out.println("Player: " + id + " got 1 point");
     }
 
     /**
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        sleep = env.config.penaltyFreezeMillis;
+        sleepUntil = System.currentTimeMillis() + env.config.penaltyFreezeMillis;
+        System.out.println("Player: " + id + " got penalty");
     }
 
 

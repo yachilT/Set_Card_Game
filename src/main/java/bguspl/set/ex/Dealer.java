@@ -63,11 +63,10 @@ public class Dealer implements Runnable {
     public void run() {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         for (Player player : players) {
-            new ThreadLogger(player, "player " + player.id, env.logger).startWithLog();;
+            new ThreadLogger(player, "player " + player.id, env.logger).startWithLog();
         }
         while (!shouldFinish()) {
-            placeCardsOnTable();
-            
+            placeCardsOnTable();     
             timerLoop();
             updateTimerDisplay(true);
             removeAllCardsFromTable();
@@ -81,8 +80,8 @@ public class Dealer implements Runnable {
      * The inner loop of the dealer thread that runs as long as the countdown did not time out.
      */
     private void timerLoop() {
+        reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis +100;
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
-            sleepUntilWokenOrTimeout();
             updateTimerDisplay(checkClaimedSet());
             removeCardsFromTable();
             placeCardsOnTable();
@@ -114,7 +113,7 @@ public class Dealer implements Runnable {
     private void removeCardsFromTable() {
         if (cardsToRemove != null) {
             for(int i = 0; i < cardsToRemove.length; i++)
-                table.removeCard(table.cardToSlot[i]);
+                table.removeCard(table.cardToSlot[cardsToRemove[i]]);
         }
         cardsToRemove = null;
     }
@@ -124,8 +123,10 @@ public class Dealer implements Runnable {
      */
     private void placeCardsOnTable() {
         Collections.shuffle(deck);
+        List<Integer> range = IntStream.range(0, env.config.columns * env.config.rows).boxed().collect(Collectors.toList());
+        Collections.shuffle(range);
         synchronized(table){
-            for(int i = 0; i < env.config.columns * env.config.rows & !deck.isEmpty(); i++){
+            for(int i : range){
                 if(table.slotToCard[i] == null){
                     int card = deck.remove(deck.size()-1);
                     table.placeCard(card, i);
@@ -150,7 +151,6 @@ public class Dealer implements Runnable {
      */
     private void updateTimerDisplay(boolean reset) {
         if (reset){
-            reshuffleTime += env.config.turnTimeoutMillis;
             env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         }   
         else {
@@ -163,8 +163,10 @@ public class Dealer implements Runnable {
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
+        List<Integer> range = IntStream.range(0, env.config.columns * env.config.rows).boxed().collect(Collectors.toList());
+        Collections.shuffle(range);
         synchronized(table){
-            for(int i = 0; i < env.config.columns*env.config.rows; i++){
+            for(int i : range){
                 int card = table.slotToCard[i];
                 table.removeCard(i);
                 deck.add(card);
@@ -182,7 +184,7 @@ public class Dealer implements Runnable {
 
     public void addClaimSet(int playerId){
         synchronized(claimSetsQ){
-            System.out.println("player" + playerId + "claimed set!");
+            System.out.println("player " + playerId + " claimed set!");
             claimSetsQ.add(playerId);
         }
     }
@@ -196,6 +198,7 @@ public class Dealer implements Runnable {
         if (id != -1){
             System.out.println("checking player " + id + " set!");
             int[] cardsToRemove = table.getCardsOfPlayer(id);
+            System.out.println(cardsToRemove == null ? "couldn't find card for player: " + id : "found card for player: " + id);
             if (env.util.testSet(cardsToRemove)) {
                 
                 players[id].point();
