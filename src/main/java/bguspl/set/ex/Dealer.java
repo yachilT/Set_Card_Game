@@ -8,6 +8,8 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Vector;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -56,6 +58,7 @@ public class Dealer implements Runnable {
         this.claimSetsQ = new LinkedList<>();
         this.cardsToRemove = null;
         reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
+        shuffling = true;
     }
     
     /**
@@ -86,12 +89,45 @@ public class Dealer implements Runnable {
      * The inner loop of the dealer thread that runs as long as the countdown did not time out.
      */
     private void timerLoop() {
-        reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis +100;
+        reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis + 100;
         
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
-            updateTimerDisplay(checkClaimedSet());
-            removeCardsFromTable();
-            placeCardsOnTable();
+
+            Map.Entry<Integer, List<Integer>> e = checkClaimedSet().entrySet().iterator().next();
+
+            List<Integer> slotsToCheck = e.getValue();
+            int id = e.getKey();
+
+            Collections.sort(slotsToCheck);
+            boolean isSet = false;
+            if (!slotsToCheck.isEmpty()) {
+                int[] cardsToCheck = new int[slotsToCheck.size()];
+                synchronized(table.slotLocks[slotsToCheck.get(0)]){
+                    cardsToCheck[0] = table.slotToCard[slotsToCheck.get(0)];
+
+                    synchronized(table.slotLocks[slotsToCheck.get(1)]) {
+                        cardsToCheck[1] = table.slotToCard[slotsToCheck.get(1)];
+
+                        synchronized(table.slotLocks[slotsToCheck.get(2)]) {
+                            cardsToCheck[0] = table.slotToCard[slotsToCheck.get(0)];
+                            
+                            isSet = env.util.testSet(cardsToCheck);
+                            if (isSet) {
+                                players[id].point();
+                                this.cardsToRemove = cardsToCheck;
+                                removeCardsFromTable();
+                                placeCardsOnTable();
+                            }
+                            else
+                                players[id].penalty();
+
+                        }
+                    }
+                }
+            }
+
+            updateTimerDisplay(isSet);
+
         }
     }
 
@@ -204,7 +240,7 @@ public class Dealer implements Runnable {
         }
     }
 
-    private boolean checkClaimedSet() {
+    private Map<Integer, List<Integer>> checkClaimedSet() {
         int id = -1;
         synchronized(claimSetsQ) {
             if (!claimSetsQ.isEmpty())
@@ -212,19 +248,22 @@ public class Dealer implements Runnable {
         }
         if (id != -1){
             System.out.println("checking player " + id + " set!");
-            int[] cardsToRemove = table.getCardsOfPlayer(id);
-            System.out.println(cardsToRemove == null ? "couldn't find card for player: " + id : "found card for player: " + id);
-            if (env.util.testSet(cardsToRemove)) {
-                
-                players[id].point();
-                this.cardsToRemove = cardsToRemove;
-                players[id].clearTokens();
-                return true;
-            }
-            else
-                players[id].penalty();
+            return Map.of(id, players[id].getTokens());
         }
-        return false;
+        else
+            return Map.of(id, new Vector<Integer>());
+        //     System.out.println(cardsToRemove == null ? "couldn't find card for player: " + id : "found card for player: " + id);
+        //     if (env.util.testSet(cardsToRemove)) {
+                
+        //         players[id].point();
+        //         this.cardsToRemove = cardsToRemove;
+        //         players[id].clearTokens();
+        //         return true;
+        //     }
+        //     else
+        //         players[id].penalty();
+        // }
+        // return false;
            
     }
 }

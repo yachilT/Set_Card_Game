@@ -1,6 +1,8 @@
 package bguspl.set.ex;
 
+import java.util.Random;
 import java.util.Vector;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -146,12 +148,14 @@ public class Player implements Runnable {
         // note: this is a very, very smart AI (!)
         aiThread = new Thread(() -> {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
+            Random rand = new Random();
             while (!terminate) {
-                // TODO implement player key press simulator
-                try {
-                    synchronized (this) { wait(); }
-                } catch (InterruptedException ignored) {}
-            }
+                int slot = rand.nextInt(env.config.tableSize);
+                keyPressed(slot);
+            //     try {
+            //         synchronized (this) { wait(); }
+            //     } catch (InterruptedException ignored) {}
+             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
         aiThread.start();
@@ -238,5 +242,10 @@ public class Player implements Runnable {
     public synchronized void clearTokens(){
         tokens.clear();
         this.isChecked = false;
+    }
+    public List<Integer> getTokens() {
+        synchronized(tokens) {
+            return new Vector<Integer>(tokens);
+        }
     }
 }

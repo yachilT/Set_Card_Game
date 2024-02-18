@@ -31,7 +31,7 @@ public class Table {
 
     public final boolean[][] playersTokens; // 2d array that holds the token of each player
 
-
+    public final Object[] slotLocks;
     /**
      * Constructor for testing.
      *
@@ -44,7 +44,11 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
-        this.playersTokens = new boolean[env.config.players][env.config.columns * env.config.rows];
+        this.playersTokens = new boolean[env.config.players][env.config.tableSize];
+        slotLocks = new Object[env.config.tableSize];
+        for (int i = 0; i < slotLocks.length; i++) {
+            slotLocks[i] = new Object();
+        }
     }
 
     /**
@@ -90,33 +94,37 @@ public class Table {
      *
      * @post - the card placed is on the table, in the assigned slot.
      */
-    public synchronized void placeCard(int card, int slot) {
-        try {
-            Thread.sleep(env.config.tableDelayMillis);
-        } catch (InterruptedException ignored) {}
+    public void placeCard(int card, int slot) {
+        synchronized(slotLocks[slot]){
+            try {
+                Thread.sleep(env.config.tableDelayMillis);
+            } catch (InterruptedException ignored) {}
 
-        cardToSlot[card] = slot;
-        slotToCard[slot] = card;
+            cardToSlot[card] = slot;
+            slotToCard[slot] = card;
 
-        env.ui.placeCard(card, slot);
+            env.ui.placeCard(card, slot);
+        }
     }
 
     /**
      * Removes a card from a grid slot on the table.
      * @param slot - the slot from which to remove the card.
      */
-    public synchronized void removeCard(int slot) {
-        try {
-            Thread.sleep(env.config.tableDelayMillis);
-        } catch (InterruptedException ignored) {}
-        for (int i = 0; i < playersTokens.length; i++) {
-            removeToken(i, slot);
-        }
-        int card = slotToCard[slot];
-        slotToCard[slot] = null;
-        cardToSlot[card] = null; 
+    public void removeCard(int slot) {
+        synchronized(slotLocks[slot]){
+            try {
+                Thread.sleep(env.config.tableDelayMillis);
+            } catch (InterruptedException ignored) {}
+            for (int i = 0; i < playersTokens.length; i++) {
+                removeToken(i, slot);
+            }
+            int card = slotToCard[slot];
+            slotToCard[slot] = null;
+            cardToSlot[card] = null; 
 
-        env.ui.removeCard(slot);
+            env.ui.removeCard(slot);
+        }
     }
 
     /**
@@ -124,10 +132,12 @@ public class Table {
      * @param player - the player the token belongs to.
      * @param slot   - the slot on which to place the token.
      */
-    public synchronized void placeToken(int player, int slot) {
-        if (slotToCard[slot] != null)
-            playersTokens[player][slot] = true;
-            env.ui.placeToken(player, slot);
+    public void placeToken(int player, int slot) {
+        synchronized(slotLocks[slot]){
+            if (slotToCard[slot] != null)
+                playersTokens[player][slot] = true;
+                env.ui.placeToken(player, slot);
+        }
     }
 
     /**
@@ -136,12 +146,14 @@ public class Table {
      * @param slot   - the slot from which to remove the token.
      * @return       - true iff a token was successfully removed.
      */
-    public synchronized boolean removeToken(int player, int slot) {
-        if (!playersTokens[player][slot])
-            return false;
-        playersTokens[player][slot] = false;
-        env.ui.removeToken(player, slot);
-        return true;
+    public boolean removeToken(int player, int slot) {
+        synchronized(slotLocks[slot]){
+            if (!playersTokens[player][slot])
+                return false;
+            playersTokens[player][slot] = false;
+            env.ui.removeToken(player, slot);
+            return true;
+        }
     }
 
     public synchronized int[] getCardsOfPlayer(int id) {
