@@ -113,9 +113,15 @@ public class Player implements Runnable {
                 env.ui.setFreeze(id, sleepUntil);
                 System.out.println("Player: " + id + " woken up");
             }
+
+            if (dealer.shuffling)
+            {
+                while(dealer.shuffling);
+                shouldClearQueue();
+            }
                 
             
-
+            
             if (shouldClearQueue) {
                 synchronized(incomingActionsQueue) { incomingActionsQueue.clear(); }
                 shouldClearQueue = false;
@@ -178,7 +184,7 @@ public class Player implements Runnable {
 
         if (slot == null)
             return;
-
+        
         if (tokens.contains(slot)) {
             if (!table.removeToken(id, slot))
                 env.logger.warning("unable to remove token in " + slot + " by " + id);

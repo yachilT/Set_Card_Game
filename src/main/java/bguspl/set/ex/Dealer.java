@@ -41,6 +41,8 @@ public class Dealer implements Runnable {
      */
     private volatile boolean terminate;
 
+    public volatile boolean shuffling;
+
     /**
      * The time when the dealer needs to reshuffle the deck due to turn timeout.
      */
@@ -65,16 +67,16 @@ public class Dealer implements Runnable {
         for (Player player : players) {
             new ThreadLogger(player, "player " + player.id, env.logger).startWithLog();
         }
+        
         while (!shouldFinish()) {
-            placeCardsOnTable();     
+            placeCardsOnTable(); 
+            table.hints(); 
+            shuffling = false;   
+
             timerLoop();
             updateTimerDisplay(true);
+            shuffling = true;
             removeAllCardsFromTable();
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                
-            }
         }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -85,6 +87,7 @@ public class Dealer implements Runnable {
      */
     private void timerLoop() {
         reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis +100;
+        
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
             updateTimerDisplay(checkClaimedSet());
             removeCardsFromTable();
@@ -157,11 +160,14 @@ public class Dealer implements Runnable {
         if (reset){
             reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
             env.ui.setCountdown(env.config.turnTimeoutMillis, false);
+            table.hints();
+            
         }   
         else {
             long nextTime = reshuffleTime - System.currentTimeMillis();
             env.ui.setCountdown(nextTime, nextTime < env.config.turnTimeoutWarningMillis);
         }
+
     }
 
     /**
