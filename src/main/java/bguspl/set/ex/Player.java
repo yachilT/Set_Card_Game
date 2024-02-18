@@ -68,7 +68,7 @@ public class Player implements Runnable {
 
     private long sleepUntil; 
 
-    private boolean shouldClear;
+    private boolean shouldClearQueue;
 
     private boolean isChecked;//Complete This!
 
@@ -90,7 +90,7 @@ public class Player implements Runnable {
         incomingActionsQueue = new LinkedBlockingQueue<>();
         this.tokens = new Vector<>(3);
         sleepUntil = -1;
-        shouldClear = false;
+        shouldClearQueue = false;
     }
 
     /**
@@ -109,16 +109,16 @@ public class Player implements Runnable {
             }
             if(sleepUntil > 0){
                 sleepUntil = -1;
-                shouldClear();
+                shouldClearQueue();
                 env.ui.setFreeze(id, sleepUntil);
                 System.out.println("Player: " + id + " woken up");
             }
                 
             
 
-            if (shouldClear) {
-                synchronized(incomingActionsQueue){incomingActionsQueue.clear();}
-                shouldClear = false;
+            if (shouldClearQueue) {
+                synchronized(incomingActionsQueue) { incomingActionsQueue.clear(); }
+                shouldClearQueue = false;
             }
                 
             applyAction();
@@ -204,12 +204,11 @@ public class Player implements Runnable {
      * @post - the player's score is increased by 1.
      * @post - the player's score is updated in the ui.
      */
-    public  synchronized void point() {
+    public synchronized void point() {
         sleepUntil = System.currentTimeMillis() + env.config.pointFreezeMillis;
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         isChecked = false;
         env.ui.setScore(id, ++score);
-        tokens.clear();
         System.out.println("Player: " + id + " got 1 point");
     }
 
@@ -227,7 +226,11 @@ public class Player implements Runnable {
     }
 
     //check without synch
-    public synchronized void shouldClear() {
-        shouldClear = true;
+    public synchronized void shouldClearQueue() {
+        shouldClearQueue = true;
+    }
+    public synchronized void clearTokens(){
+        tokens.clear();
+        this.isChecked = false;
     }
 }

@@ -204,7 +204,8 @@ public class Config {
         players = humanPlayers + computerPlayers;
 
         hints = Boolean.parseBoolean(properties.getProperty("Hints", "False"));
-        turnTimeoutMillis = (long) (Double.parseDouble(properties.getProperty("TurnTimeoutSeconds", "60")) * 1000.0);
+        //turnTimeoutMillis = (long) (Double.parseDouble(properties.getProperty("TurnTimeoutSeconds", "60")) * 1000.0);
+        turnTimeoutMillis = (long) 10 * 1000;
         turnTimeoutWarningMillis = (long) (Double.parseDouble(properties.getProperty("TurnTimeoutWarningSeconds", "60")) * 1000.0);
         pointFreezeMillis = (long) (Double.parseDouble(properties.getProperty("PointFreezeSeconds", "1")) * 1000.0);
         penaltyFreezeMillis = (long) (Double.parseDouble(properties.getProperty("PenaltyFreezeSeconds", "3")) * 1000.0);

@@ -70,7 +70,11 @@ public class Dealer implements Runnable {
             timerLoop();
             updateTimerDisplay(true);
             removeAllCardsFromTable();
-
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                
+            }
         }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -151,6 +155,7 @@ public class Dealer implements Runnable {
      */
     private void updateTimerDisplay(boolean reset) {
         if (reset){
+            reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
             env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         }   
         else {
@@ -171,7 +176,11 @@ public class Dealer implements Runnable {
                 table.removeCard(i);
                 deck.add(card);
             }
+            for (Player player : players) {
+                player.clearTokens();
+            }
         }
+
     }   
 
     /**
@@ -203,6 +212,7 @@ public class Dealer implements Runnable {
                 
                 players[id].point();
                 this.cardsToRemove = cardsToRemove;
+                players[id].clearTokens();
                 return true;
             }
             else
