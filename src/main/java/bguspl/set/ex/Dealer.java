@@ -85,7 +85,19 @@ public class Dealer implements Runnable {
             shuffling = true;
             removeAllCardsFromTable();
         }
+        shuffling = false;
         announceWinners();
+        //TODO: Plaster - need to think of a better way!!:
+        for (ReentrantLock lock : table.slotLocks) {
+            lock.unlock();
+        }
+        for (int i = players.length - 1; i >= 0; i--) {
+            players[i].terminate();
+            synchronized(players[i]) {
+                players[i].notifyAll();
+            }
+            players[i].join();
+        }
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
 
@@ -148,9 +160,6 @@ public class Dealer implements Runnable {
      */
     public void terminate() {
         terminate = true;
-        for (Player player : players) {
-            player.terminate();
-        }
     }
 
     /**

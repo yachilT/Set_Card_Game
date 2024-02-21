@@ -106,13 +106,14 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
 
         while (!terminate) {
+            System.out.println("Player " + id + " started while");
+            
             while (System.currentTimeMillis() < sleepUntil) 
             {
                 env.ui.setFreeze(id, sleepUntil - System.currentTimeMillis());
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {}
-                incomingActionsQueue.clear();
             }
             if(sleepUntil > 0){
                 sleepUntil = -1;
@@ -123,21 +124,25 @@ public class Player implements Runnable {
 
             if (dealer.shuffling)
             {
+                System.out.println("Player " + id + " is waiting while dealer is Shuffling");
                 while(dealer.shuffling);
+                System.out.println("Player " + id + " is waking up after Shuffling");
                 shouldClearQueue();
             }
                 
             
             
             if (shouldClearQueue) {
-                synchronized(incomingActionsQueue) { incomingActionsQueue.clear(); incomingActionsQueue.notifyAll(); }
+                System.out.println("Player " + id  + " is trying to clear incomingActions");
+                synchronized(incomingActionsQueue) { incomingActionsQueue.clear(); }
                 shouldClearQueue = false;
+                System.out.println("Player " + id  + " cleared incomingActions");
             }
                 
             applyAction();
             if (tokens.size() == env.config.featureSize & !isChecked){
-                dealer.addClaimSet(id);
                 synchronized(this){
+                    dealer.addClaimSet(id);
                     try {
                         System.out.println("Player " + id + " is waiting for dealer to check a set");
                         this.wait();
@@ -146,8 +151,9 @@ public class Player implements Runnable {
                 }
             }
         }
-        if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
+        if (!human) try { aiThread.interrupt();  System.out.println("wating for aiThread " + id + " to join"); aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
+        
     }
 
     /**
@@ -177,6 +183,7 @@ public class Player implements Runnable {
      */
     public void terminate() {
         this.terminate = true;
+        System.out.println("terminating player " + id);
     }
 
     /**
@@ -193,13 +200,15 @@ public class Player implements Runnable {
     private void applyAction() {
         Integer slot = null;
         try {
+            System.out.println("Player " + id + " Trying to take action");
             slot = incomingActionsQueue.take();
+            System.out.println("Player " + id + " took an action");
         } catch (InterruptedException e) { }
         
 
         if (slot == null)
             return;
-        
+        System.out.println("Player " + id + " is trying to apply action");
         if (tokens.contains(slot)) {
             if (!table.removeToken(id, slot))
                 env.logger.warning("unable to remove token in " + slot + " by " + id);
@@ -221,6 +230,7 @@ public class Player implements Runnable {
                 table.slotLocks[slot].unlock();   
             }
         }
+        System.out.println("Player " + id + " applied action");
         // try {
         //     Thread.sleep(100);
         // } catch (InterruptedException e) {}
@@ -267,5 +277,16 @@ public class Player implements Runnable {
         synchronized(tokens) {
             return new Vector<Integer>(tokens);
         }
+    }
+
+    public void join() {
+        try {
+            System.out.println("Waiting for player " + id + " to join");
+            playerThread.join();
+        } catch (InterruptedException e) {}
+    }
+
+    public void interrupt(){
+        playerThread.interrupt();
     }
 }
