@@ -138,7 +138,7 @@ public class Player implements Runnable {
                 shouldClearQueue = false;
                 System.out.println("Player " + id  + " cleared incomingActions");
             }
-                
+            
             applyAction();
             if (tokens.size() == env.config.featureSize & !isChecked){
                 synchronized(this){
@@ -151,7 +151,7 @@ public class Player implements Runnable {
                 }
             }
         }
-        if (!human) try { aiThread.interrupt();  System.out.println("wating for aiThread " + id + " to join"); aiThread.join(); } catch (InterruptedException ignored) {}
+        if (!human) try { aiThread.interrupt();  System.out.println("waiting for aiThread " + id + " to join"); aiThread.join(); System.out.println("aiThread " + id + " joined");} catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         
     }
@@ -168,9 +168,9 @@ public class Player implements Runnable {
             while (!terminate) {
                 int slot = rand.nextInt(env.config.tableSize);
                 keyPressed(slot);
-            //     try {
-            //         synchronized (this) { wait(); }
-            //     } catch (InterruptedException ignored) {} 
+                // try {
+                //     synchronized (this) { wait(); }
+                // } catch (InterruptedException ignored) {} 
              }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
@@ -184,6 +184,8 @@ public class Player implements Runnable {
     public void terminate() {
         this.terminate = true;
         System.out.println("terminating player " + id);
+        if (human)
+            keyPressed(0);
     }
 
     /**
@@ -205,6 +207,7 @@ public class Player implements Runnable {
             System.out.println("Player " + id + " took an action");
         } catch (InterruptedException e) { }
         
+
 
         if (slot == null)
             return;

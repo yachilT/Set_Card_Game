@@ -78,6 +78,8 @@ public class Dealer implements Runnable {
         }
         while (!shouldFinish()) {
             placeCardsOnTable(); 
+            if (env.config.hints)
+                table.hints();
             shuffling = false;   
 
             timerLoop();
@@ -85,6 +87,7 @@ public class Dealer implements Runnable {
             shuffling = true;
             removeAllCardsFromTable();
         }
+        System.out.println("Starting termination sequence");
         shuffling = false;
         announceWinners();
         //TODO: Plaster - need to think of a better way!!:
@@ -92,11 +95,13 @@ public class Dealer implements Runnable {
             lock.unlock();
         }
         for (int i = players.length - 1; i >= 0; i--) {
+            System.out.println("Dealer: Starting to terminate player " + players[i].id);
             players[i].terminate();
             synchronized(players[i]) {
                 players[i].notifyAll();
             }
             players[i].join();
+            System.out.println("Player " + players[i].id + " joined ");
         }
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
@@ -136,12 +141,13 @@ public class Dealer implements Runnable {
                     // System.out.println("--------------------------------------------------------------");
                     // table.hints(); 
                     // System.out.println("***************************************************************");
-
+                    if (env.config.hints)
+                        table.hints();
 
                 }
                 else{
                     players[id].penalty();
-                    synchronized(players[id]){players[id].notifyAll(); }
+                    synchronized(players[id]) {players[id].notifyAll(); }
                 }
 
                 for (int i = env.config.featureSize - 1; i >= 0; i--){
