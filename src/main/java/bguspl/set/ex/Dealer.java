@@ -94,6 +94,7 @@ public class Dealer implements Runnable {
         for (ReentrantLock lock : table.slotLocks) {
             lock.unlock();
         }
+
         for (int i = players.length - 1; i >= 0; i--) {
             System.out.println("Dealer: Starting to terminate player " + players[i].id);
             players[i].terminate();
@@ -103,6 +104,9 @@ public class Dealer implements Runnable {
             players[i].join();
             System.out.println("Player " + players[i].id + " joined ");
         }
+        try {
+            Thread.sleep(env.config.endGamePauseMillies);
+        } catch (InterruptedException e) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
 
@@ -111,14 +115,13 @@ public class Dealer implements Runnable {
      */
     private void timerLoop() {
         reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis + 100;
-        
+        boolean isSet = false;
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
-
+            updateTimerDisplay(isSet);
             Map.Entry<Integer, List<Integer>> e = checkClaimedSet().entrySet().iterator().next();
 
             List<Integer> slotsToCheck = e.getValue();
             int id = e.getKey();
-            boolean isSet = false;
             Collections.sort(slotsToCheck);
             if (!slotsToCheck.isEmpty()) {
                 int[] cardsToCheck = new int[slotsToCheck.size()];
@@ -155,7 +158,6 @@ public class Dealer implements Runnable {
                 if (reshuffleTime - System.currentTimeMillis() > env.config.turnTimeoutWarningMillis)
                     sleepUntilWokenOrTimeout();
             }
-            updateTimerDisplay(isSet);
         }
     }
 
