@@ -68,7 +68,7 @@ public class Player implements Runnable {
      */
     private int score;
 
-    private long sleepUntil; 
+    private long freezeTime; 
 
     private boolean shouldClearQueue;
 
@@ -91,7 +91,7 @@ public class Player implements Runnable {
         this.human = human;
         this.incomingActionsQueue = new LinkedBlockingQueue<>(env.config.featureSize);
         this.tokens = new Vector<>(env.config.featureSize);
-        sleepUntil = -1;
+        freezeTime = -1;
         shouldClearQueue = false;
         isChecked = false;
     }
@@ -107,37 +107,30 @@ public class Player implements Runnable {
 
         while (!terminate) {
             System.out.println("Player " + id + " started while");
-            
-            while (System.currentTimeMillis() < sleepUntil) 
+            if (freezeTime > 0)
             {
-                env.ui.setFreeze(id, sleepUntil - System.currentTimeMillis());
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {}
-            }
-            if(sleepUntil > 0){
-                sleepUntil = -1;
-                shouldClearQueue();
-                env.ui.setFreeze(id, sleepUntil);
+                long freezeUntil = System.currentTimeMillis() + freezeTime;
+                while (System.currentTimeMillis() < freezeUntil & !terminate) 
+                {
+                    env.ui.setFreeze(id, freezeUntil - System.currentTimeMillis());
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {}
+                }
+                freezeTime = 0;
+                env.ui.setFreeze(id, freezeTime);
                 // System.out.println("Player: " + id + " woken up from freeze");
             }
 
             if (dealer.shuffling)
             {
-                System.out.println("Player " + id + " is waiting while dealer is Shuffling");
+                //System.out.println("Player " + id + " is waiting while dealer is Shuffling");
                 while(dealer.shuffling);
-                System.out.println("Player " + id + " is waking up after Shuffling");
-                shouldClearQueue();
+                //System.out.println("Player " + id + " is waking up after Shuffling");
+
             }
                 
             
-            
-            if (shouldClearQueue) {
-                System.out.println("Player " + id  + " is trying to clear incomingActions");
-                synchronized(incomingActionsQueue) { incomingActionsQueue.clear(); }
-                shouldClearQueue = false;
-                System.out.println("Player " + id  + " cleared incomingActions");
-            }
             
             applyAction();
             if (tokens.size() == env.config.featureSize & !isChecked){
@@ -145,9 +138,9 @@ public class Player implements Runnable {
                     dealer.addClaimSet(id);
                     synchronized(dealer) {dealer.notifyAll(); }
                     try {
-                        System.out.println("Player " + id + " is waiting for dealer to check a set");
+                        //System.out.println("Player " + id + " is waiting for dealer to check a set");
                         this.wait();
-                        System.out.println("Player " + id + " was woken up by the dealer");
+                        //System.out.println("Player " + id + " was woken up by the dealer");
                     }catch(InterruptedException ignored){}
                 }
             }
@@ -169,9 +162,9 @@ public class Player implements Runnable {
             while (!terminate) {
                 int slot = rand.nextInt(env.config.tableSize);
                 keyPressed(slot);
-                // try {
-                //     synchronized (this) { wait(); }
-                // } catch (InterruptedException ignored) {} 
+                try {
+                    Thread.sleep(700);
+                } catch (InterruptedException ignored) {} 
              }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
@@ -195,24 +188,25 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) { // inserts an action to the queue
-        try{
-            incomingActionsQueue.put(slot);
-        } catch (Exception e) { }
+        if (freezeTime <= 0)
+            try{
+                incomingActionsQueue.put(slot);
+            } catch (Exception e) { }
     }
 
     private void applyAction() {
         Integer slot = null;
         try {
-            System.out.println("Player " + id + " Trying to take action");
+            //System.out.println("Player " + id + " Trying to take action");
             slot = incomingActionsQueue.take();
-            System.out.println("Player " + id + " took an action");
+            //System.out.println("Player " + id + " took an action");
         } catch (InterruptedException e) { }
         
 
 
         if (slot == null)
             return;
-        System.out.println("Player " + id + " is trying to apply action");
+        //System.out.println("Player " + id + " is trying to apply action");
         if (tokens.contains(slot)) {
             if (!table.removeToken(id, slot))
                 env.logger.warning("unable to remove token in " + slot + " by " + id);
@@ -234,7 +228,7 @@ public class Player implements Runnable {
                 table.slotLocks[slot].unlock();   
             }
         }
-        System.out.println("Player " + id + " applied action");
+        //System.out.println("Player " + id + " applied action");
         // try {
         //     Thread.sleep(100);
         // } catch (InterruptedException e) {}
@@ -247,7 +241,7 @@ public class Player implements Runnable {
      * @post - the player's score is updated in the ui.
      */
     public synchronized void point() {
-        sleepUntil = System.currentTimeMillis() + env.config.pointFreezeMillis;
+        freezeTime = env.config.pointFreezeMillis;
         clearTokens();
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         isChecked = false;
@@ -260,7 +254,7 @@ public class Player implements Runnable {
      */
     public void penalty() {
         isChecked = true;
-        sleepUntil = System.currentTimeMillis() + env.config.penaltyFreezeMillis;
+        freezeTime = env.config.penaltyFreezeMillis;
         // System.out.println("Player: " + id + " got penalty");
     }
 
@@ -269,10 +263,6 @@ public class Player implements Runnable {
         return score;
     }
 
-    //check without synch
-    public synchronized void shouldClearQueue() {
-        shouldClearQueue = true;
-    }
     public synchronized void clearTokens(){
         tokens.clear();
         this.isChecked = false;
@@ -285,7 +275,7 @@ public class Player implements Runnable {
 
     public void join() {
         try {
-            System.out.println("Waiting for player " + id + " to join");
+            //System.out.println("Waiting for player " + id + " to join");
             playerThread.join();
         } catch (InterruptedException e) {}
     }
