@@ -118,9 +118,8 @@ public class Dealer implements Runnable {
 
             List<Integer> slotsToCheck = e.getValue();
             int id = e.getKey();
-
-            Collections.sort(slotsToCheck);
             boolean isSet = false;
+            Collections.sort(slotsToCheck);
             if (!slotsToCheck.isEmpty()) {
                 int[] cardsToCheck = new int[slotsToCheck.size()];
                 for (int i = 0; i < env.config.featureSize; i++){
@@ -138,9 +137,6 @@ public class Dealer implements Runnable {
                     }
                     removeCardsFromTable();
                     placeCardsOnTable();
-                    // System.out.println("--------------------------------------------------------------");
-                    // table.hints(); 
-                    // System.out.println("***************************************************************");
                     if (env.config.hints)
                         table.hints();
 
@@ -155,9 +151,11 @@ public class Dealer implements Runnable {
                     table.slotLocks[slot].unlock();
                 }
             }
-
+            else {
+                if (reshuffleTime - System.currentTimeMillis() > env.config.turnTimeoutWarningMillis)
+                    sleepUntilWokenOrTimeout();
+            }
             updateTimerDisplay(isSet);
-            // sleepUntilWokenOrTimeout();
         }
     }
 
@@ -210,9 +208,9 @@ public class Dealer implements Runnable {
     /**
      * Sleep for a fixed amount of time or until the thread is awakened for some purpose.
      */
-    private void sleepUntilWokenOrTimeout() {
+    private synchronized void sleepUntilWokenOrTimeout() {
         try{
-            Thread.sleep(1000);
+            this.wait(1000);
         }
         catch(InterruptedException ignored) {}
     }

@@ -143,6 +143,7 @@ public class Player implements Runnable {
             if (tokens.size() == env.config.featureSize & !isChecked){
                 synchronized(this){
                     dealer.addClaimSet(id);
+                    synchronized(dealer) {dealer.notifyAll(); }
                     try {
                         System.out.println("Player " + id + " is waiting for dealer to check a set");
                         this.wait();
